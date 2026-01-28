@@ -14,6 +14,10 @@ app.get('/display', (req, res) => {
 });
 
 app.post('/display', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.redirect('/');
+  }
+
   const image = req.file.path;
 
   const host = '192.168.0.86';
