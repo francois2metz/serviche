@@ -10,6 +10,9 @@
     <div class="container">
       <h1>Serviche</h1>
       <p>Si vous souhaitez afficher une image sur Ich, vous êtes au bon endroit.</p>
+      <div class="w-25">
+        {{ currentImage }}
+      </div>
       <form method="post" enctype="multipart/form-data" action="/display">
         <div class="mb-3">
           <label for="formFile" class="form-label">Sélectionner une image</label>

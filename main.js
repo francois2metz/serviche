@@ -7,7 +7,18 @@ import multer from 'multer';
 const upload = multer({ dest: 'uploads/' })
 
 const app = express()
-app.use(express.static('public'));
+app.use('/uploads', express.static('uploads'));
+
+app.get('/', async (req, res) => {
+  const indexPage = await fs.promises.readFile('./public/index.html', { encoding: 'utf8' });
+  try {
+    const state = await fs.promises.readFile('./state.json', { encoding: 'utf8' });
+    const path = JSON.parse(state).path;
+    res.send(indexPage.replace(/{{ currentImage }}/, `<img src="${path}" alt="" class="img-thumbnail" />`));
+  } catch (e) {
+    res.send(indexPage.replace(/{{ currentImage }}/, ''));
+  }
+});
 
 app.get('/display', (req, res) => {
   res.redirect('/');
@@ -17,8 +28,8 @@ app.post('/display', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.redirect('/');
   }
-
   const image = req.file.path;
+  await fs.promises.writeFile('./state.json', JSON.stringify({ path: image }));
 
   const host = '192.168.0.86';
   const localIp = '192.168.0.65';
