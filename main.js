@@ -9,7 +9,7 @@ const upload = multer({ dest: 'uploads/' })
 const app = express()
 app.use(express.static('public'));
 
-app.post('/', upload.single('file'), async (req, res) => {
+app.post('/display', upload.single('file'), async (req, res) => {
   const image = req.file.path;
 
   const host = '192.168.0.86';
@@ -106,7 +106,8 @@ app.post('/', upload.single('file'), async (req, res) => {
   console.log('✅ Content set');
   console.log('');
 
-  res.redirect('/');
+  const successPath = await fs.promises.realpath('./public/success.html');
+  res.sendFile(successPath);
 });
 
 app.listen("12345");
