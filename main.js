@@ -9,6 +9,10 @@ const upload = multer({ dest: 'uploads/' })
 const app = express()
 app.use(express.static('public'));
 
+app.get('/display', (req, res) => {
+  res.redirect('/');
+});
+
 app.post('/display', upload.single('file'), async (req, res) => {
   const image = req.file.path;
 
