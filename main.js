@@ -4,100 +4,94 @@ import { Device } from '@weejewel/samsung-mdc';
 import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 
+const localIp = '192.168.0.65';
+const port = 12345;
+
 const upload = multer({ dest: 'uploads/' })
 
 const app = express()
-app.use('/uploads', express.static('uploads'));
 
 app.get('/', async (req, res) => {
-  const indexPage = await fs.promises.readFile('./public/index.html', { encoding: 'utf8' });
-  try {
-    const state = await fs.promises.readFile('./state.json', { encoding: 'utf8' });
-    const path = JSON.parse(state).path;
-    res.send(indexPage.replace(/{{ currentImage }}/, `<img src="${path}" alt="" class="img-thumbnail" />`));
-  } catch (e) {
-    res.send(indexPage.replace(/{{ currentImage }}/, ''));
-  }
+  const pagePath = await fs.promises.realpath('./public/index.html');
+  res.sendFile(pagePath);
 });
 
 app.get('/display', (req, res) => {
   res.redirect('/');
 });
 
+app.get('/content.json', async (req, res) => {
+  const state = await fs.promises.readFile('./state.json', { encoding: 'utf8' });
+  const image = JSON.parse(state);
+
+  const fileId = uuidv4().toUpperCase();
+  const fileSize = await fs.promises.stat(image.path).then(stats => stats.size);
+  const fileExtension = image.originalname.split('.').pop();
+  const fileName = `${fileId}.${fileExtension}`;
+
+  console.log('🔄 Serving /content.json...');
+
+  res.header('Content-Type', 'application/json');
+  res.send(JSON.stringify({
+    schedule: [
+      {
+        start_date: '1970-01-01',
+        stop_date: '2999-12-31',
+        start_time: '00:00:00',
+        contents: [
+          {
+            image_url: `http://${localIp}:${port}/image`,
+            file_id: fileId,
+            file_path: `/home/owner/content/Downloads/vxtplayer/epaper/mobile/contents/${fileId}/${fileName}`,
+            duration: 91326, // TODO ?
+            file_size: `${fileSize}`,
+            file_name: `${fileName}`,
+          },
+        ],
+      },
+    ],
+    name: 'node-samsung-emdx',
+    version: 1,
+    create_time: '2025-01-01 00:00:00',
+    id: fileId,
+    program_id: 'com.samsung.ios.ePaper',
+    content_type: 'ImageContent',
+    deploy_type: 'MOBILE'
+  }).replaceAll('/', '\\/'));
+
+  req.once('close', () => {
+    console.log('✅ Served /content.json');
+    console.log('');
+  });
+});
+
+app.get(`/image`, async (req, res) => {
+  console.log(`🔄 Serving /image...`);
+  try {
+    const state = await fs.promises.readFile('./state.json', { encoding: 'utf8' });
+    const image = JSON.parse(state).path;
+
+    res.sendFile(await fs.promises.realpath(image));
+
+    req.once('close', () => {
+      console.log(`✅ Served /image`);
+      console.log('');
+    });
+  } catch (e) {
+    res.status(404).send('');
+  }
+});
+
 app.post('/display', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.redirect('/');
   }
-  const image = req.file.path;
-  await fs.promises.writeFile('./state.json', JSON.stringify({ path: image }));
+  const image = req.file;
+  await fs.promises.writeFile('./state.json', JSON.stringify(image));
 
   const host = '192.168.0.86';
-  const localIp = '192.168.0.65';
-  const port = 3000;
   const mac = null;
   const pin = '123456';
-
-  const fileId = uuidv4().toUpperCase();
-  const fileSize = await fs.promises.stat(image).then(stats => stats.size);
-  const fileExtension = req.file.originalname.split('.').pop();
-  const fileName = `${fileId}.${fileExtension}`;
-
-  console.log('🔄 Starting HTTP server...');
-  await new Promise((resolve, reject) => {
-    const app2 = express()
-          .get('/content.json', (req, res) => {
-            console.log('🔄 Serving /content.json...');
-
-            res.header('Content-Type', 'application/json');
-            res.send(JSON.stringify({
-              schedule: [
-                {
-                  start_date: '1970-01-01',
-                  stop_date: '2999-12-31',
-                  start_time: '00:00:00',
-                  contents: [
-                    {
-                      image_url: `http://${localIp}:${port}/image`,
-                      file_id: fileId,
-                      file_path: `/home/owner/content/Downloads/vxtplayer/epaper/mobile/contents/${fileId}/${fileName}`,
-                      duration: 91326, // TODO ?
-                      file_size: `${fileSize}`,
-                      file_name: `${fileName}`,
-                    },
-                  ],
-                },
-              ],
-              name: 'node-samsung-emdx',
-              version: 1,
-              create_time: '2025-01-01 00:00:00',
-              id: fileId,
-              program_id: 'com.samsung.ios.ePaper',
-              content_type: 'ImageContent',
-              deploy_type: 'MOBILE'
-            }).replaceAll('/', '\\/'));
-
-            req.once('close', () => {
-              console.log('✅ Served /content.json');
-              console.log('');
-            });
-          })
-          .get(`/image`, async (req, res) => {
-            console.log(`🔄 Serving /image...`);
-            res.sendFile(await fs.promises.realpath(image));
-
-            req.once('close', () => {
-              console.log(`✅ Served /image`);
-              console.log('');
-              app2.close();
-            });
-          })
-          .listen(port, err => {
-            if (err) return reject(err);
-            return resolve();
-          });
-  });
-  console.log(`✅ HTTP server listening at http://${localIp}:${port}`);
-  console.log('');
 
   const device = new Device({
     host,
